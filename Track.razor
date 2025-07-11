@@ -1,0 +1,278 @@
+@page "/trackday"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject WellnessService WellnessService
+@inject UserSessionService UserSessionService
+@using BlazorApp2.Components.Services
+@using BlazorApp2.Components.Layout
+@layout MainLayout
+
+<h3 class="mt-4">🗓️ Weekly Wellness Tracker (Sunday to Saturday)</h3>
+
+@if (!UserSessionService.IsLoggedIn)
+{
+    <div class="alert alert-danger mt-4 text-center">You must be logged in to track your wellness.</div>
+}
+else
+{
+    <div class="container mt-4">
+        <div class="row g-4">
+            <div class="col-12">
+                <label class="form-label">📆 Tracking Week: <strong>@startDate.ToString("MMM dd") - @endDate.ToString("MMM dd")</strong></label>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">🗓 Select Day</label>
+                <select class="form-select"
+                        @bind="selectedDate"
+                        @bind:event="oninput"
+                        @onchange="OnDateChanged">
+                    @foreach (var entry in wellnessHistory)
+                    {
+                        <option value="@entry.Date">@DateTime.Parse(entry.Date).ToString("dddd, MMM dd")</option>
+                    }
+                </select>
+            </div>
+
+            @if (selectedEntry != null)
+            {
+                <div class="col-md-6">
+                    <label>😴 Sleep Hours: <strong>@sleepHours</strong> / 12</label>
+                    <input type="range" min="0" max="12" step="1" class="custom-slider" @bind="sleepHours" style="@GetSliderStyle(sleepHours, 12, "#007bff")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label>💧 Water Intake (L): <strong>@waterIntake</strong> / 5</label>
+                    <input type="range" min="0" max="5" step="1" class="custom-slider" @bind="waterIntake" style="@GetSliderStyle(waterIntake, 5, "#17a2b8")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label>🏃 Exercise (min): <strong>@exerciseMinutes</strong> / 120</label>
+                    <input type="range" min="0" max="120" step="5" class="custom-slider" @bind="exerciseMinutes" style="@GetSliderStyle(exerciseMinutes, 120, "#28a745")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label>🍽️ Meal Quality: <strong>@mealQuality</strong> / 10</label>
+                    <input type="range" min="0" max="10" step="1" class="custom-slider" @bind="mealQuality" style="@GetSliderStyle(mealQuality, 10, "#ffc107")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label>😊 Mood: <strong>@mood</strong> / 10</label>
+                    <input type="range" min="0" max="10" step="1" class="custom-slider" @bind="mood" style="@GetSliderStyle(mood, 10, "#6c757d")" />
+                </div>
+
+                <div class="col-md-6">
+                    <label>⚡ Energy Level: <strong>@energyLevel</strong> / 10</label>
+                    <input type="range" min="0" max="10" step="1" class="custom-slider" @bind="energyLevel" style="@GetSliderStyle(energyLevel, 10, "#dc3545")" />
+                </div>
+
+                <div class="col-12">
+                    <label>📝 Daily Note</label>
+                    <textarea class="form-control" rows="3" @bind="dailyNote"></textarea>
+                </div>
+
+                <div class="col-12">
+                    <button class="btn btn-success w-100" @onclick="SaveData">✅ Save Entry</button>
+                </div>
+
+                @if (showConfirmation)
+                {
+                    <div class="col-12">
+                        <div class="alert alert-success mt-3 text-center">✔ Day saved!</div>
+                    </div>
+                }
+            }
+
+            <div class="col-12 mt-5">
+                <h4>📊 Weekly Summary</h4>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>😴 Sleep</th>
+                            <th>💧 Water (L)</th>
+                            <th>🏃 Exercise (min)</th>
+                            <th>🍽️ Meal</th>
+                            <th>😊 Mood</th>
+                            <th>⚡ Energy</th>
+                            <th>📝 Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in wellnessHistory)
+                        {
+                            <tr class="@((entry.IsMissing ? "text-muted" : ""))">
+                                <td>@entry.Date</td>
+                                <td>@(entry.IsMissing ? "-" : entry.SleepHours)</td>
+                                <td>@(entry.IsMissing ? "-" : entry.WaterIntake)</td>
+                                <td>@(entry.IsMissing ? "-" : entry.ExerciseMinutes)</td>
+                                <td>@(entry.IsMissing ? "-" : entry.MealQuality)</td>
+                                <td>@(entry.IsMissing ? "-" : entry.Mood)</td>
+                                <td>@(entry.IsMissing ? "-" : entry.EnergyLevel)</td>
+                                <td>@(entry.IsMissing ? "-" : entry.DailyNote)</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th>Average</th>
+                            <th>@Averages.SleepHours</th>
+                            <th>@Averages.WaterIntake</th>
+                            <th>@Averages.ExerciseMinutes</th>
+                            <th>@Averages.MealQuality</th>
+                            <th>@Averages.Mood</th>
+                            <th>@Averages.EnergyLevel</th>
+                            <th>-</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private DateTime startDate;
+    private DateTime endDate;
+
+    private string selectedDate = "";
+    private List<WellnessData> wellnessHistory = new();
+    private WellnessData? selectedEntry;
+
+    private double sleepHours;
+    private double waterIntake;
+    private int exerciseMinutes;
+    private int mealQuality;
+    private int mood;
+    private int energyLevel;
+    private string dailyNote = "";
+
+    private WellnessAverages Averages = new();
+    private bool showConfirmation = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserSessionService.IsLoggedIn)
+            return;
+
+        startDate = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek);
+        endDate = startDate.AddDays(6);
+
+        wellnessHistory = await WellnessService.GetWeekRangeDataAsync(startDate);
+        selectedDate = DateTime.Today.ToString("yyyy-MM-dd");
+        await LoadSelectedDayData();
+    }
+
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        selectedDate = e.Value?.ToString() ?? "";
+        await LoadSelectedDayData();
+    }
+
+    private async Task LoadSelectedDayData()
+    {
+        selectedEntry = wellnessHistory.FirstOrDefault(e => e.Date == selectedDate);
+
+        sleepHours = selectedEntry?.SleepHours ?? 0;
+        waterIntake = selectedEntry?.WaterIntake ?? 0;
+        exerciseMinutes = selectedEntry?.ExerciseMinutes ?? 0;
+        mealQuality = selectedEntry?.MealQuality ?? 0;
+        mood = selectedEntry?.Mood ?? 0;
+        energyLevel = selectedEntry?.EnergyLevel ?? 0;
+        dailyNote = selectedEntry?.DailyNote ?? "";
+
+        Averages = WellnessService.CalculateAverages(wellnessHistory);
+    }
+
+    private async Task SaveData()
+{
+    var updated = new WellnessData
+    {
+        Date = selectedDate,
+        SleepHours = sleepHours,
+        WaterIntake = waterIntake,
+        ExerciseMinutes = exerciseMinutes,
+        MealQuality = mealQuality,
+        Mood = mood,
+        EnergyLevel = energyLevel,
+        DailyNote = dailyNote,
+        IsMissing = false
+    };
+
+    var fullHistory = await WellnessService.GetWellnessHistoryAsync();
+    var existing = fullHistory.FirstOrDefault(d => d.Date == selectedDate);
+
+    if (existing != null)
+    {
+        existing.SleepHours = updated.SleepHours;
+        existing.WaterIntake = updated.WaterIntake;
+        existing.ExerciseMinutes = updated.ExerciseMinutes;
+        existing.MealQuality = updated.MealQuality;
+        existing.Mood = updated.Mood;
+        existing.EnergyLevel = updated.EnergyLevel;
+        existing.DailyNote = updated.DailyNote;
+    }
+    else
+    {
+        fullHistory.Add(updated);
+    }
+
+    await WellnessService.SaveWellnessHistoryAsync(fullHistory);
+
+    // ✅ Save the last updated timestamp to localStorage
+    await JS.InvokeVoidAsync("localStorage.setItem", $"lastUpdated-{UserSessionService.CurrentUsername}", DateTime.Now.ToString("o"));
+
+    wellnessHistory = await WellnessService.GetWeekRangeDataAsync(startDate);
+    selectedDate = updated.Date;
+    await LoadSelectedDayData();
+
+    showConfirmation = true;
+    StateHasChanged();
+    await Task.Delay(3000);
+    showConfirmation = false;
+    StateHasChanged();
+}
+
+    private string GetSliderStyle(double value, double max, string fillColor)
+    {
+        var percent = (value / max) * 100;
+        return $"background: linear-gradient(to right, {fillColor} 0%, {fillColor} {percent}%, #ddd {percent}%, #ddd 100%)";
+    }
+}
+
+<style>
+    input[type=range].custom-slider {
+        height: 8px;
+        appearance: none;
+        -webkit-appearance: none;
+        background: #ddd;
+        border-radius: 5px;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        appearance: none;
+        -webkit-appearance: none;
+        height: 20px;
+        width: 20px;
+        background: #343a40;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+        margin-top: -6px;
+    }
+
+    input[type=range]::-moz-range-thumb {
+        height: 20px;
+        width: 20px;
+        background: #343a40;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+    }
+
+    input[type=range]::-moz-range-track {
+        background: transparent;
+    }
+</style>

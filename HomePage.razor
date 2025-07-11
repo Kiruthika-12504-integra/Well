@@ -1,0 +1,164 @@
+@page "/home"
+@rendermode InteractiveServer
+@using BlazorApp2.Components.Services
+@using BlazorApp2.Components.Layout
+@layout MainLayout
+
+@inject UserSessionService UserSessionService
+@inject WellnessService WellnessService
+@inject IJSRuntime JS
+
+<h2 class="text-center my-4 fw-bold">🌟 Weekly Wellness Overview</h2>
+
+<h4 class="text-center text-muted mb-1">Welcome, @UserSessionService.CurrentUsername! 👋</h4>
+
+<p class="text-center text-muted small mb-4">
+    @if (lastUpdatedDate.HasValue)
+    {
+        <span>Last updated: @lastUpdatedDate.Value.ToString("dddd, dd MMM yyyy hh:mm tt")</span>
+    }
+    else
+    {
+        <span>No recent updates yet.</span>
+    }
+</p>
+
+<div class="text-center mb-4">
+    <blockquote class="blockquote text-muted">
+        <p>"Take care of your body. It's the only place you have to live." – Jim Rohn</p>
+    </blockquote>
+</div>
+
+<div class="container">
+    <div class="row g-4">
+
+        @* Sleep Hours *@
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">😴 Sleep Hours</h5>
+                    <p class="card-text">Average: <strong>@averages.SleepHours</strong> hrs</p>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: @((averages.SleepHours / 12) * 100)%">
+                            @averages.SleepHours
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Water Intake *@
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">💧 Water Intake</h5>
+                    <p class="card-text">Average: <strong>@averages.WaterIntake</strong> L</p>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: @((averages.WaterIntake / 5) * 100)%">
+                            @averages.WaterIntake L
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Exercise Minutes *@
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">🏃 Exercise</h5>
+                    <p class="card-text">Average: <strong>@averages.ExerciseMinutes</strong> min</p>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: @(Math.Min(100, (averages.ExerciseMinutes / 120.0) * 100))%">
+                            @averages.ExerciseMinutes min
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Meal Quality *@
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">🍽️ Meal Quality</h5>
+                    <p class="card-text">Average: <strong>@averages.MealQuality</strong>/10</p>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: @(averages.MealQuality * 10)%">
+                            @averages.MealQuality / 10
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Mood *@
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">😊 Mood</h5>
+                    <p class="card-text">Average: <strong>@averages.Mood</strong>/10</p>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-secondary" role="progressbar" style="width: @(averages.Mood * 10)%">
+                            @averages.Mood / 10
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Energy Level *@
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">⚡ Energy</h5>
+                    <p class="card-text">Average: <strong>@averages.EnergyLevel</strong>/10</p>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: @(averages.EnergyLevel * 10)%">
+                            @averages.EnergyLevel / 10
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="text-center mt-5">
+        <a href="/trackday" class="btn btn-lg btn-outline-primary px-5">✍️ Track Today</a>
+    </div>
+
+    <div class="text-center mt-4 text-muted small">
+        <em>Keep tracking daily to unlock better insights and suggestions!</em>
+    </div>
+</div>
+
+@code {
+    private WellnessAverages averages = new();
+    private DateTime? lastUpdatedDate = null;
+    private bool hasInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !hasInitialized)
+        {
+            hasInitialized = true;
+
+            var startDate = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek); // Sunday
+            var weeklyData = await WellnessService.GetWeekRangeDataAsync(startDate);
+            averages = WellnessService.CalculateAverages(weeklyData);
+
+            var username = UserSessionService.CurrentUsername;
+            if (!string.IsNullOrEmpty(username))
+            {
+                var lastUpdatedStr = await JS.InvokeAsync<string>("localStorage.getItem", $"lastUpdated-{username}");
+                if (DateTime.TryParse(lastUpdatedStr, out var parsedDate))
+                {
+                    lastUpdatedDate = parsedDate;
+                }
+            }
+
+            StateHasChanged();
+        }
+    }
+}

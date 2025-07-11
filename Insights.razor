@@ -1,0 +1,99 @@
+@page "/insights"
+@rendermode InteractiveServer
+@inject WellnessService WellnessService
+@inject UserSessionService UserSessionService
+
+@using BlazorApp2.Components.Services
+@using BlazorApp2.Components.Layout
+@layout MainLayout
+
+<h3 class="mt-4 mb-4 text-center">📊 Wellness Insights</h3>
+
+@if (!isReady)
+{
+    <div class="text-center text-muted">Loading your insights...</div>
+}
+else
+{
+    <div class="container">
+        <!-- Recommendations -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-warning">
+                <h4 class="mb-0">📝 Personalized Recommendations</h4>
+            </div>
+            <div class="card-body">
+                @if (recommendations.Any())
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var rec in recommendations)
+                        {
+                            <li class="list-group-item">@rec</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-success">You're doing great in all areas! 🎉</p>
+                }
+            </div>
+        </div>
+
+        <!-- Averages Summary -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">📈 Weekly Averages</h4>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">😴 Sleep: <strong>@averages.SleepHours</strong> hrs</li>
+                    <li class="list-group-item">💧 Water: <strong>@averages.WaterIntake</strong> L</li>
+                    <li class="list-group-item">🏃 Exercise: <strong>@averages.ExerciseMinutes</strong> min</li>
+                    <li class="list-group-item">🍽️ Meal Quality: <strong>@averages.MealQuality</strong> / 10</li>
+                    <li class="list-group-item">😊 Mood: <strong>@averages.Mood</strong> / 10</li>
+                    <li class="list-group-item">⚡ Energy: <strong>@averages.EnergyLevel</strong> / 10</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private WellnessAverages averages = new();
+    private List<string> recommendations = new();
+    private bool isReady = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isReady && UserSessionService.IsLoggedIn)
+        {
+            var startOfWeek = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek);
+            var weeklyData = await WellnessService.GetWeekRangeDataAsync(startOfWeek);
+
+            averages = WellnessService.CalculateAverages(weeklyData);
+            recommendations = GenerateRecommendations(averages);
+
+            isReady = true;
+            StateHasChanged();
+        }
+    }
+
+    private List<string> GenerateRecommendations(WellnessAverages avg)
+    {
+        var recs = new List<string>();
+
+        if (avg.SleepHours < 7)
+            recs.Add("😴 Try to get at least 7 hours of sleep per night.");
+        if (avg.WaterIntake < 2)
+            recs.Add("💧 Drink more water — aim for at least 2L daily.");
+        if (avg.ExerciseMinutes < 30)
+            recs.Add("🏃 Aim for 30+ minutes of physical activity most days.");
+        if (avg.MealQuality < 6)
+            recs.Add("🍽️ Improve your meal quality with more nutritious options.");
+        if (avg.Mood < 6)
+            recs.Add("😊 Practice mindfulness or fun activities to boost your mood.");
+        if (avg.EnergyLevel < 6)
+            recs.Add("⚡ Improve energy by sleeping consistently and staying hydrated.");
+
+        return recs;
+    }
+}

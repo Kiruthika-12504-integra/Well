@@ -1,0 +1,99 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@inject UserSessionService UserSessionService
+
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <div class="sidebar text-white p-4">
+        <h4 class="mb-5 fw-semibold">🌿 Wellness</h4>
+        <ul class="nav flex-column gap-2">
+            <li class="nav-item">
+                <a class="nav-link sidebar-link @(IsActive("/home") ? "active" : "")" href="/home">🏠 Home</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link sidebar-link @(IsActive("/trackday") ? "active" : "")" href="/trackday">📝 Track Day</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link sidebar-link @(IsActive("/insights") ? "active" : "")" href="/insights">📊 Insights</a>
+            </li>
+            @* <li class="nav-item">
+                <a class="nav-link sidebar-link @(IsActive("/Profile") ? "active" : "")" href="/profile">📊 Profile</a>
+            </li> *@
+            <li class="nav-item mt-4">
+                @* <button class="btn btn-sm btn-light text-dark w-100 fw-semibold"  href="">🚪 Logout</button> *@
+                <NavLink class="btn btn-sm btn-light text-dark w-100 fw-semibold" @onclick="Logout" href="">Logout</NavLink>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content flex-grow-1 p-5">
+        @Body
+    </div>
+</div>
+
+<style>
+    /* Sidebar container */
+    .sidebar {
+        width: 240px;
+        min-height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: linear-gradient(to bottom, rgb(24, 141, 141), rgb(255, 243, 224));
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Main content shift */
+    .main-content {
+        margin-left: 240px;
+    }
+
+    /* Sidebar links */
+    .sidebar-link {
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: all 0.2s ease;
+    }
+
+    .sidebar-link:hover {
+        background-color: white;
+        color: black !important;
+        text-decoration: none;
+        transform: translateX(4px);
+    }
+
+    .sidebar-link.active {
+        background-color: rgb(255, 243, 224);
+        color: #333 !important;
+        font-weight: 600;
+        box-shadow: inset 2px 0 0 #333;
+    }
+
+    /* Logout button */
+    .btn-light:hover {
+        background-color: rgb(255, 243, 224);
+        color: black;
+    }
+
+    /* Smooth transition on all elements */
+    .nav-link,
+    .btn {
+        transition: all 0.2s ease-in-out;
+    }
+</style>
+
+@code {
+    private void Logout()
+    {
+        UserSessionService.ClearUser();
+    }
+
+    private bool IsActive(string page)
+    {
+        return NavigationManager.Uri.EndsWith(page, StringComparison.OrdinalIgnoreCase);
+    }
+}
